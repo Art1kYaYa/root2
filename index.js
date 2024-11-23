@@ -1,26 +1,21 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
-// Замените на токен вашего бота
 const token = '7758731240:AAHEtPHVTX-CfWqlwVk7zTim1_SwUHqFbcc';
 const bot = new TelegramBot(token, { polling: true });
 
 const usersFile = './users.json';
 const finesFile = './fines.json';
 
-// ID работников налоговой
-const taxWorkers = [1378783537, 2030128216];  // Замените числа на ID работников налоговой
 
-// Загрузка данных из файлов
+const taxWorkers = [1378783537, 2030128216];  
+
+
 let users = loadData(usersFile) || {};
 let fines = loadData(finesFile) || {};
-const authorizedUsers = []; // Список авторизованных
-const employees = []; // Список работников
+const authorizedUsers = []; 
+const employees = []; 
 
-
-
-
-// Функция для загрузки данных
 function loadData(filename) {
   if (fs.existsSync(filename)) {
     const data = fs.readFileSync(filename, 'utf-8');
@@ -29,7 +24,6 @@ function loadData(filename) {
   return null;
 }
 
-// Функция для сохранения данных
 function saveData(filename, data) {
   fs.writeFileSync(filename, JSON.stringify(data, null, 2));
 }
@@ -52,12 +46,12 @@ bot.onText(/\/help/, (msg) => {
   bot.sendMessage(chatId, helpMessage);
 });
 
-// Проверка, является ли пользователь работником налоговой
+
 function isTaxWorker(userId) {
   return taxWorkers.includes(userId);
 }
 
-// Команда /start - Приветственное сообщение и регистрация
+
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
 
@@ -72,11 +66,11 @@ bot.onText(/\/start/, (msg) => {
 
   }
 });
-// Команда /worker_help для работников, которая объясняет доступные команды
+
 bot.onText(/\/worker_help/, (msg) => {
   const chatId = msg.chat.id;
 
-  // Проверка, является ли пользователь работником
+
   if (!msg.from || !users[chatId] || !users[chatId].role.includes('worker')) {
     bot.sendMessage(chatId, '🛑 Эта команда доступна только работникам Налоговой.');
     return;
@@ -107,14 +101,14 @@ bot.onText(/\/worker_help/, (msg) => {
   bot.sendMessage(chatId, helpMessage);
 });
 
-// Глобальная проверка доступа к командам
+
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  // Определяем команды
-  const adminOnlyCommands = ['/add_worker', '/remove_worker']; // Только для администраторов
-  const workerOnlyCommands = ['/fine', '/check_fines', '/pay', '/archive']; // Только для работников
+
+  const adminOnlyCommands = ['/add_worker', '/remove_worker']; 
+  const workerOnlyCommands = ['/fine', '/check_fines', '/pay', '/archive']; 
 
   const isCommand = text.startsWith('/');
   const isAdminCommand = adminOnlyCommands.some((cmd) => text.startsWith(cmd));
