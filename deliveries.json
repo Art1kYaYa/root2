@@ -1,0 +1,26 @@
+[
+  {
+    "nickname": "hardik",
+    "items": "1 сундук",
+    "coordinates": "мой дом в смоле",
+    "date": "01/02/2025",
+    "chatId": 1654770471,
+    "status": "доставлено"
+  },
+  {
+    "nickname": "hardik",
+    "items": "1 сундук",
+    "coordinates": "3396 72 2864",
+    "date": "01/02/2025",
+    "chatId": 1654770471,
+    "status": "в ожидании"
+  },
+  {
+    "nickname": "22Tovslo13",
+    "items": "заказывал арт (не помню дату. но давно)",
+    "coordinates": "250 100 2530",
+    "date": "22/13/2020",
+    "chatId": 1378783537,
+    "status": "доставлено"
+  }
+]
