@@ -94,6 +94,11 @@
     "balance": 0,
     "role": "user"
   },
+  "6266158651": {
+    "username": "@Laminaria",
+    "balance": 0,
+    "role": "worker"
+  },
   "6631676438": {
     "username": "@sa1ilix",
     "balance": 0,
@@ -120,7 +125,7 @@
     "role": "worker"
   },
   "5431283726": {
-    "username": "@san_0907",
+    "username": "@san0907",
     "balance": 0,
     "role": "worker"
   }
