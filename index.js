@@ -423,8 +423,12 @@ function isWorker(userId) {
   return users[userId] && users[userId].role === 'worker';
 }
 
-// Выдача штрафа
-bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
+// Проверка, является ли пользователь с id 2030128216 (это особенный работник, который может менять статус)
+function isSpecialWorker(userId) {
+  return userId === '2030128216';
+}
+
+bot.onText(/\/fine (@\w+|\w+) (\d+) (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
 
   if (!isWorker(chatId)) {
@@ -432,8 +436,8 @@ bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
     return;
   }
 
-  const targetUsername = match[1];
-  const amount = parseInt(match[2]);
+  const targetUsername = match[1]; // Имя пользователя из команды
+  const amount = parseInt(match[2], 10);
   const reason = match[3];
 
   if (isNaN(amount) || amount <= 0) {
@@ -441,8 +445,11 @@ bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
     return;
   }
 
+  // Ищем пользователя по username или first_name
   const targetUserId = Object.keys(users).find(
-    (id) => users[id].username === targetUsername
+    (id) => 
+      (users[id].username && users[id].username.toLowerCase() === targetUsername.toLowerCase()) || 
+      (users[id].first_name && users[id].first_name.toLowerCase() === targetUsername.toLowerCase())
   );
 
   if (!targetUserId) {
@@ -450,7 +457,8 @@ bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
     return;
   }
 
-  if (!fines[targetUserId]) fines[targetUserId] = [];
+  // Убеждаемся, что у пользователя есть массив штрафов
+  fines[targetUserId] ??= [];
 
   fines[targetUserId].push({
     amount,
@@ -458,6 +466,8 @@ bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
     issuedBy: chatId,
     date: new Date().toISOString(),
     paid: false,
+    confirmedBy: null, // Добавляем поле для хранения ID подтверждающего работника
+    rejectedBy: null, // Добавляем поле для хранения ID отклоняющего работника
   });
 
   saveFines();
@@ -467,230 +477,174 @@ bot.onText(/\/fine (@\w+) (\d+) (.+)/, (msg, match) => {
     `✅ Штраф для ${targetUsername} на сумму ${amount} успешно добавлен.\nПричина: ${reason}.`
   );
 
-  bot.sendMessage(
-    targetUserId,
-    `❌ Вам был выписан штраф на сумму ${amount}.\nПричина: ${reason}.\nНажмите "Штраф оплачен", если вы оплатили штраф.`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: 'Штраф оплачен',
-              callback_data: `fine_paid_${targetUserId}`,
-            },
+  try {
+    await bot.sendMessage(
+      targetUserId,
+      `❌ Вам выписан штраф на сумму ${amount}.\nПричина: ${reason}.\nНажмите "Штраф оплачен", если вы оплатили штраф.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'Штраф оплачен',
+                callback_data: `fine_paid_${targetUserId}`,
+              },
+            ],
           ],
-        ],
-      },
-    }
-  );
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Ошибка отправки сообщения:', error.message);
+    bot.sendMessage(chatId, `⚠️ Не удалось отправить штраф пользователю. Возможно, он не начинал чат с ботом.`);
+  }
 });
-
-// Обработка кнопки "Штраф оплачен"
-bot.on('callback_query', (query) => {
-  const chatId = query.message.chat.id;
-  const data = query.data;
-
-  if (data.startsWith('fine_paid_')) {
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const data = query.data;
     const targetUserId = data.split('_')[2];
 
     if (!fines[targetUserId]) {
-      bot.answerCallbackQuery(query.id, { text: '❌ Штрафов не найдено.' });
-      return;
+        bot.answerCallbackQuery(query.id, { text: '❌ Штрафов не найдено.' });
+        return;
     }
 
-    const unpaidFine = fines[targetUserId].find((fine) => !fine.paid);
+    // Если нажали "Штраф оплачен"
+    if (data.startsWith('fine_paid_')) {
+        // Находим неоплаченный штраф
+        const unpaidFine = fines[targetUserId].find((fine) => !fine.paid && !fine.rejectedBy);
 
-    if (!unpaidFine) {
-      bot.answerCallbackQuery(query.id, { text: '✅ Все штрафы уже оплачены.' });
-      return;
+        if (!unpaidFine) {
+            bot.answerCallbackQuery(query.id, { text: '✅ Все штрафы уже обработаны.' });
+            return;
+        }
+
+        // Запрещаем пользователю нажимать кнопку несколько раз
+        if (unpaidFine.requestedPayment) {
+            bot.answerCallbackQuery(query.id, { text: '⚠️ Вы уже отправили запрос на оплату.' });
+            return;
+        }
+        unpaidFine.requestedPayment = true;
+        saveFines();
+
+        // Отправляем уведомление всем работникам
+        Object.entries(users)
+            .filter(([_, user]) => user.role === 'worker')
+            .forEach(([workerId]) => {
+                bot.sendMessage(
+                    workerId,
+                    `📢 Пользователь ${users[targetUserId].username} заявил, что оплатил штраф на сумму ${unpaidFine.amount}.\nПричина: ${unpaidFine.reason}.\n\nПодтвердите или отклоните оплату.`,
+                    {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [
+                                    { text: '✅ Подтвердить оплату', callback_data: `confirm_payment_${targetUserId}` },
+                                    { text: '❌ Отклонить оплату', callback_data: `reject_payment_${targetUserId}` },
+                                ],
+                            ],
+                        },
+                    }
+                );
+            });
+
+        bot.answerCallbackQuery(query.id, { text: '✅ Заявка на оплату отправлена работникам.' });
     }
 
-    // Уведомляем всех работников налоговой для подтверждения
-    Object.entries(users)
-      .filter(([_, user]) => user.role === 'worker')
-      .forEach(([workerId]) => {
+    // Подтверждение оплаты штрафа
+    if (data.startsWith('confirm_payment_') || data.startsWith('reject_payment_')) {
+        const unpaidFineIndex = fines[targetUserId].findIndex((fine) => !fine.paid && !fine.rejectedBy);
+
+        if (unpaidFineIndex === -1) {
+            bot.answerCallbackQuery(query.id, { text: '✅ Все штрафы уже обработаны.' });
+            return;
+        }
+
+        const unpaidFine = fines[targetUserId][unpaidFineIndex];
+
+        if (unpaidFine.paid || unpaidFine.rejectedBy) {
+            bot.answerCallbackQuery(query.id, { text: '❌ Штраф уже был обработан другим работником.' });
+            return;
+        }
+
+        const isConfirm = data.startsWith('confirm_payment_');
+        unpaidFine.paid = isConfirm;
+        unpaidFine.rejectedBy = isConfirm ? null : chatId;
+        unpaidFine.confirmedBy = isConfirm ? chatId : null;
+
+        saveFines();
+
+        const statusText = isConfirm ? '✅ Оплачено' : '❌ Отклонено';
+        bot.answerCallbackQuery(query.id, { text: `✅ Штраф ${statusText}.` });
+
         bot.sendMessage(
-          workerId,
-          `📢 Пользователь ${users[targetUserId].username} заявил, что оплатил штраф на сумму ${unpaidFine.amount}.\nПричина: ${unpaidFine.reason}.\n\nПодтвердите или отклоните оплату.`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: '✅ Подтвердить оплату',
-                    callback_data: `confirm_payment_${targetUserId}`,
-                  },
-                  {
-                    text: '❌ Отклонить оплату',
-                    callback_data: `reject_payment_${targetUserId}`,
-                  },
-                ],
-              ],
-            },
-          }
+            chatId,
+            `✅ Статус штрафа пользователя ${users[targetUserId].username} был изменен на "${statusText}".`
         );
-      });
 
-    bot.answerCallbackQuery(query.id, {
-      text: '✅ Заявка на оплату отправлена налоговым работникам.', // Изменил текст на "Заявка на оплату отправлена"
-    });
-  }
+        bot.sendMessage(
+            targetUserId,
+            `✅ Ваш штраф на сумму ${unpaidFine.amount} был изменен на "${statusText}".`
+        );
 
-  // Подтверждение оплаты штрафа
-  if (data.startsWith('confirm_payment_')) {
-    const targetUserId = data.split('_')[2];
-
-    const unpaidFineIndex = fines[targetUserId].findIndex((fine) => !fine.paid);
-
-    if (unpaidFineIndex === -1) {
-      bot.answerCallbackQuery(query.id, {
-        text: '✅ Все штрафы уже оплачены.',
-      });
-      return;
+        // Убираем кнопки у всех работников
+        Object.entries(users)
+            .filter(([_, user]) => user.role === 'worker')
+            .forEach(([workerId]) => {
+                bot.editMessageReplyMarkup(
+                    { inline_keyboard: [] },
+                    { chat_id: workerId, message_id: unpaidFine.messageId }
+                ).catch(() => {});
+            });
     }
-
-    fines[targetUserId][unpaidFineIndex].paid = true;
-    saveFines();
-
-    bot.answerCallbackQuery(query.id, {
-      text: '✅ Оплата подтверждена.',
-    });
-
-    bot.sendMessage(
-      query.message.chat.id,
-      `✅ Оплата штрафа пользователя ${users[targetUserId].username} подтверждена.`
-    );
-
-    bot.sendMessage(
-      targetUserId,
-      `✅ Ваш штраф на сумму ${fines[targetUserId][unpaidFineIndex].amount} был успешно оплачен.`
-    );
-
-    // Убираем кнопки из сообщения
-    bot.editMessageReplyMarkup(
-      { inline_keyboard: [] },
-      { chat_id: query.message.chat.id, message_id: query.message.message_id }
-    );
-  }
-
-  // Отклонение оплаты штрафа
-  if (data.startsWith('reject_payment_')) {
-    const targetUserId = data.split('_')[2];
-
-    bot.answerCallbackQuery(query.id, {
-      text: '❌ Оплата отклонена.',
-    });
-
-    bot.sendMessage(
-      query.message.chat.id,
-      `❌ Оплата штрафа пользователя ${users[targetUserId].username} отклонена.`
-    );
-
-    bot.sendMessage(
-      targetUserId,
-      `❌ Ваш запрос об оплате штрафа был отклонен. Обратитесь к налоговому работнику.`
-    );
-  }
 });
-
-bot.on('message', (msg) => {
+// Команда для 2030128216, чтобы изменить статус штрафа
+bot.onText(/\/change_fine_status (\d+) (\w+)/, (msg, match) => {
   const chatId = msg.chat.id;
-  const userId = String(msg.from.id); // Приводим ID к строке
-  const text = msg.text;
 
-  if (text === '/list') {
-    if (users[userId] && (users[userId].role === 'worker' || users[userId].role === 'admin')) {
-      let response = "📋 **Список пользователей:**\n";
-
-      if (Object.keys(users).length > 0) {
-        Object.entries(users).forEach(([id, userData]) => {
-          const role = userData.role || 'user'; // Если роль отсутствует, устанавливается 'user'
-
-          // Добавляем информацию о пользователе с ID в формате \` \`
-          response += `- ${userData.username} (ID: \`${id}\`, Баланс: ${userData.balance}, Роль: ${role})\n`;
-        });
-
-        bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
-      } else {
-        response += "Нет данных.";
-        bot.sendMessage(chatId, response);
-      }
-    } else {
-      bot.sendMessage(chatId, '❌ Эта команда доступна только работникам налоговой.');
-    }
-  }
-});
-
-
-
-
-
-
-// Загрузка данных при запуске
-loadUsers();
-
-const interactionLogs = [];
-bot.on('message', (msg) => {
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    username: msg.from.username || 'Без имени',
-    chatId: msg.chat.id,
-    text: msg.text || 'Без текста'
-  };
-
-  interactionLogs.push(logEntry);
-
-  console.log(`[${logEntry.timestamp}] Пользователь: ${logEntry.username}, ID чата: ${logEntry.chatId}, Сообщение: "${logEntry.text}"`);
-});
-
-function addFine(chatId, amount, reason) {
-  if (!fines[chatId]) {
-    fines[chatId] = [];
+  // Проверяем, что пользователь является тем самым работником с ID 2030128216
+  if (!isSpecialWorker(chatId)) {
+    bot.sendMessage(chatId, '❌ Эта команда доступна только для специального работника.');
+    return;
   }
 
-  const fine = {
-    amount,
-    reason,
-    paid: false,
-    cancelled: false,
-    createdAt: Date.now(),
-    doubled: false, // Флаг, что штраф уже удвоен
-    warned: false,  // Флаг, что предупреждение о суде уже отправлено
-  };
+  const targetUserId = match[1];
+  const status = match[2].toLowerCase();
 
-  fines[chatId].push(fine);
+  // Находим штраф для пользователя
+  const unpaidFine = fines[targetUserId]?.find((fine) => !fine.paid);
 
-  bot.sendMessage(chatId, `🚨 Вам выписан штраф на сумму ${amount} ар за: ${reason}.`);
+  if (!unpaidFine) {
+    bot.sendMessage(chatId, `❌ У пользователя ${users[targetUserId]?.username || 'неизвестный'} нет неоплаченных штрафов.`);
+    return;
+  }
 
-  // Таймер для удвоения штрафа через минуту
-  setTimeout(() => {
-    if (!fine.paid && !fine.cancelled && !fine.doubled) {
-      fine.amount *= 2; // Удвоение штрафа
-      fine.doubled = true;
+  // Проверяем, что статус корректен (оплачено или отказано)
+  if (status !== 'оплачено' && status !== 'отказано') {
+    bot.sendMessage(chatId, '❌ Статус может быть только "оплачено" или "отказано".');
+    return;
+  }
+// Обновляем статус
+  unpaidFine.paid = (status === 'оплачено');
+  unpaidFine.rejectedBy = (status === 'отказано') ? chatId : null;
+  unpaidFine.confirmedBy = (status === 'оплачено') ? chatId : null;
+  
+  saveFines();
 
-      bot.sendMessage(
-        chatId,
-        `⚠️ Ваш штраф увеличился в 2 раза! Теперь он составляет ${fine.amount} ар.`
-      );
-    }
+  // Уведомляем работника, что статус штрафа был изменен
+  bot.sendMessage(chatId, `✅ Статус штрафа для пользователя ${users[targetUserId]?.username || 'неизвестного'} был изменен на "${status}".`);
 
-    // Таймер для предупреждения о суде еще через минуту
-    setTimeout(() => {
-      if (!fine.paid && !fine.cancelled && fine.doubled && !fine.warned) {
-        fine.warned = true;
+  // Уведомление пользователя о том, что его статус был изменен
+  bot.sendMessage(
+    targetUserId,
+    `✅ Статус вашего штрафа на сумму ${unpaidFine.amount} был изменен на "${status}". Причина: ${unpaidFine.reason}.`
+  );
 
-        bot.sendMessage(
-          chatId,
-          `⚠️ Ваш штраф не был оплачен вовремя. Мы подаем дело в суд.`
-        );
-      }
-    }, 60 * 1000); // 1 минута
-  }, 60 * 1000); // 1 минута
-}
-
-// Функция для добавления штрафа
-
-// Команда /archive
+  // Убираем кнопки, если они еще остались
+  bot.editMessageReplyMarkup(
+    { inline_keyboard: [] },
+    { chat_id: targetUserId, message_id: unpaidFine.messageId }
+  );
+});
 bot.onText(/\/archive/, (msg) => {
   const chatId = msg.chat.id;
 
@@ -2112,3 +2066,42 @@ bot.on('message', (msg) => {
 
 // Запуск бота
 console.log('Бот запущен');
+bot.onText(/\/list/, (msg) => {
+  const chatId = msg.chat.id;
+  const userId = String(msg.from.id);
+
+  if (!users[userId] || (users[userId].role !== 'worker' && users[userId].role !== 'admin')) {
+    bot.sendMessage(chatId, '❌ Эта команда доступна только работникам налоговой.');
+    return;
+  }
+
+  const userList = Object.entries(users).map(([id, userData]) => {
+    const username = userData.username || "Неизвестный";
+    const balance = isNaN(userData.balance) ? 0 : userData.balance;
+    const role = userData.role || "user";
+    return `- ${username} (ID: \`${id}\`, Баланс: ${balance}, Роль: ${role})`;
+  });
+
+  if (userList.length === 0) {
+    bot.sendMessage(chatId, "📋 **Список пользователей пуст**.", { parse_mode: 'Markdown' });
+    return;
+  }
+
+  // Функция отправки сообщений частями (если список большой)
+  function sendChunks(chatId, messages, chunkSize = 4000) {
+    let chunk = "";
+    for (const msg of messages) {
+      if (chunk.length + msg.length > chunkSize) {
+        bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+        chunk = "";
+      }
+      chunk += msg + "\n";
+    }
+    if (chunk.length > 0) {
+      bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+    }
+  }
+
+  // Отправляем список по частям
+  sendChunks(chatId, userList);
+});
