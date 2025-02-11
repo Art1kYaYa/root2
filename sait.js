@@ -9,7 +9,7 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 // Обрабатываем команду /start
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, 'Вот ссылка на фото объектов: [Перейти](https://art1kyaya.github.io/root/)', {
+    bot.sendMessage(chatId, 'Вот ссылка на фото объектов: [Перейти](https://fotosait.github.io/PhotosObjects/)', {
         parse_mode: 'Markdown'
     });
 });
