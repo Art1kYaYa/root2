@@ -1074,7 +1074,7 @@ bot.onText(/\/pay (\d+)(?: (.+))?/, (msg, match) => {
 });
 
 // Команда /list_payments
-bot.onText(/\/list_payments/, (msg) => {
+bot.onText(/\/payments_list, (msg) => {
   const chatId = msg.chat.id;
 
   if (!isTaxWorker(chatId)) {
@@ -1764,7 +1764,7 @@ const knownCommands = [
   `/report_fine`,
   `/remove_worker`,
   `/add_worker`,
-  `/list_payments`,
+  `/payments_list`,
   `/submit_case`,
   `/register`,
   `/guess_game`,
