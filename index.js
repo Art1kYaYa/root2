@@ -7,6 +7,15 @@ const adminChatId = -1002400665091; // ID админского чата
 
 const usersFile = './users.json';
 const finesFile = './fines.json';
+console.log('Тип fines:', typeof fines);
+console.log('Количество ключей:', fines ? Object.keys(fines).length : 'fines is null');
+const util = require('util');
+console.log(util.inspect(fines, { depth: 5 }));
+const { stringify } = require('flatted');
+fs.writeFileSync(finesFile, stringify(fines), 'utf-8');
+if (!fines || typeof fines !== 'object') {
+    console.error('Ошибка: fines не является объектом!');
+}
 
 
 const taxWorkers = [2030128216, 6343971096];  
