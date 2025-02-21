@@ -7,15 +7,6 @@ const adminChatId = -1002400665091; // ID админского чата
 
 const usersFile = './users.json';
 const finesFile = './fines.json';
-console.log('Тип fines:', typeof fines);
-console.log('Количество ключей:', fines ? Object.keys(fines).length : 'fines is null');
-const util = require('util');
-console.log(util.inspect(fines, { depth: 5 }));
-const { stringify } = require('flatted');
-fs.writeFileSync(finesFile, stringify(fines), 'utf-8');
-if (!fines || typeof fines !== 'object') {
-    console.error('Ошибка: fines не является объектом!');
-}
 
 
 const taxWorkers = [2030128216, 6343971096];  
@@ -636,7 +627,7 @@ bot.onText(/\/change_fine_status (\d+) (\w+)/, (msg, match) => {
   unpaidFine.paid = (status === 'оплачено');
   unpaidFine.rejectedBy = (status === 'отказано') ? chatId : null;
   unpaidFine.confirmedBy = (status === 'оплачено') ? chatId : null;
-  
+
   saveFines();
 
   // Уведомляем работника, что статус штрафа был изменен
@@ -1083,7 +1074,8 @@ bot.onText(/\/pay (\d+)(?: (.+))?/, (msg, match) => {
 });
 
 // Команда /list_payments
-bot.onText(/\/payments_list, (msg) => {
+bot.onText(/\/payments_list/, (msg) => {
+
   const chatId = msg.chat.id;
 
   if (!isTaxWorker(chatId)) {
