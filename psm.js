@@ -1,196 +1,107 @@
-const fs = require('fs');
-const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 
-// 🔹 Токен бота
-const token = '7774876781:AAEt7o6zY1LL4lU0EOglWz4iXH6ErEN25GA';
+const token = '7448547318:AAHcQ2lPIiiuo7vS92Lsk5tYW0nWYUR54rY';
 const bot = new TelegramBot(token, { polling: true });
 
-// 🔹 Пути к файлам
-const reportsFile = path.join(__dirname, 'reports.json');
-const usersFile = path.join(__dirname, 'users.json');
+const STACK_VALUE = 64; // 1 стак = 64 единицы
+const SHULKER_VALUE = 27 * STACK_VALUE; // 1 шалкер = 27 стаков
 
-// 🔹 ID группы для отчётов
-const reportsGroupId = -1002293411618;
-
-// 🔹 ID администраторов (могут разблокировать отчёты)
-const adminIds = [634391096, 2030128216];
-
-// 🔹 Переменная для блокировки подачи отчётов
-let reportsLocked = false;
-
-// 🔹 Проверяем, существуют ли файлы, если нет, создаём их
-if (!fs.existsSync(reportsFile)) fs.writeFileSync(reportsFile, JSON.stringify({}));
-if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify({}));
-
-// 🔹 Хранилище активных отчётов пользователей
-const userReports = {};
-
-// 🔹 Проверка роли пользователя
-function checkUserRole(userId) {
-    const users = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
-    return users[userId] && users[userId].role === 'worker';
+function calculateInterest(principal, rate, time, isDays = false) {
+    const dailyRate = rate / 30;
+    return principal * (1 + (isDays ? dailyRate * time : rate * time));
 }
 
-// 🔹 Проверка, подавал ли пользователь отчёт на этой неделе
-function hasSubmittedReport(chatId) {
-    const reports = JSON.parse(fs.readFileSync(reportsFile, 'utf-8'));
-    const userReport = reports[chatId];
-    if (!userReport) return false;
-
-    const lastSubmissionDate = new Date(userReport.date);
-    const currentDate = new Date();
-    return (currentDate - lastSubmissionDate) / (1000 * 60 * 60 * 24) < 7;
+function calculateLoan(principal, rate, time, isDays = false) {
+    const dailyRate = rate / 30;
+    return principal * (1 + (isDays ? dailyRate * time : rate * time));
 }
 
-// 🔹 Команда для начала отчёта
+function parseAmount(input) {
+    let match = input.match(/^(\d+)\s*(шт|стак|шалкер)?/i);
+    if (match) {
+        let amount = parseInt(match[1]);
+        let unit = match[2] ? match[2].toLowerCase() : 'шт';
+        if (unit === 'стак') return amount * STACK_VALUE;
+        if (unit === 'шалкер') return amount * SHULKER_VALUE;
+        return amount;
+    }
+    return NaN;
+}
+
+function formatStacks(amount) {
+    let shulkers = Math.floor(amount / SHULKER_VALUE);
+    let remainderAfterShulkers = amount % SHULKER_VALUE;
+    let stacks = Math.floor(remainderAfterShulkers / STACK_VALUE);
+    let remainder = remainderAfterShulkers % STACK_VALUE;
+
+    let result = [];
+    if (shulkers > 0) result.push(`${shulkers} шалкер` + (shulkers > 1 ? 'а' : ''));
+    if (stacks > 0) result.push(`${stacks} стак` + (stacks > 1 ? 'а' : ''));
+    if (remainder > 0) result.push(`${remainder} шт`);
+
+    return result.join(' ');
+}
+
+const bankKeyboard = {
+    reply_markup: {
+        keyboard: [[{ text: 'Рассчитать вклад' }, { text: 'Рассчитать кредит' }], [{ text: 'Выход' }]],
+        one_time_keyboard: true,
+        resize_keyboard: true,
+    },
+};
+
 bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-
-    if (!checkUserRole(chatId)) {
-        return bot.sendMessage(chatId, '🚫 У вас нет прав для отправки отчётов.');
-    }
-
-    if (reportsLocked) {
-        return bot.sendMessage(chatId, '🚫 Подача отчётов временно заблокирована.');
-    }
-
-    if (new Date().getDay() !== 0) {
-        return bot.sendMessage(chatId, '📅 Команда /start доступна только по воскресеньям.');
-    }
-
-    if (hasSubmittedReport(chatId)) {
-        return bot.sendMessage(chatId, '✅ Вы уже отправили отчёт на этой неделе.');
-    }
-
-    userReports[chatId] = {};
-
-    bot.sendMessage(chatId, '📋 Выберите, что вы сделали за неделю:', {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: 'Оформлено штрафов', callback_data: 'fines_processed' }],
-                [{ text: 'Посадок в КПЗ', callback_data: 'detentions' }],
-                [{ text: 'Дежурств в судах', callback_data: 'duties' }],
-                [{ text: 'Обходов по базам', callback_data: 'patrols' }],
-                [{ text: 'Участий в рейдах', callback_data: 'raids' }],
-                [{ text: 'Выдано документов', callback_data: 'documents_issued' }],
-                [{ text: '✅ Завершить', callback_data: 'confirm' }]
-            ]
-        }
-    });
+    bot.sendMessage(msg.chat.id, 'Добро пожаловать в банк Minecraft! Выберите действие:', bankKeyboard);
 });
 
-// 🔹 Обработка нажатий кнопок
-bot.on('callback_query', (query) => {
-    const chatId = query.message.chat.id;
-    const data = query.data;
+bot.onText(/Рассчитать вклад/, (msg) => {
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, 'Введите сумму вклада (например, "10 шт", "2 стака" или "1 шалкер"):');
 
-    if (!userReports[chatId]) {
-        return bot.sendMessage(chatId, '⚠️ Начните с команды /start.');
-    }
-
-    if (data === 'confirm') {
-        const report = userReports[chatId];
-        const confirmationMessage =
-            `📝 *Подтвердите ваш отчёт:*\n\n` +
-            `- 📋 *Штрафов оформлено:* ${report.fines_processed || 0}\n` +
-            `- 🚔 *Посадок в КПЗ:* ${report.detentions || 0}\n` +
-            `- ⚖️ *Дежурств в судах:* ${report.duties || 0}\n` +
-            `- 🚨 *Обходов по базам:* ${report.patrols || 0}\n` +
-            `- 🔍 *Участий в рейдах:* ${report.raids || 0}\n` +
-            `- 📜 *Выдано документов:* ${report.documents_issued || 0}`;
-
-        return bot.sendMessage(chatId, confirmationMessage, {
-            parse_mode: "Markdown",
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '✅ Подтвердить', callback_data: 'save' }],
-                    [{ text: '❌ Отменить', callback_data: 'cancel' }]
-                ]
-            }
-        });
-    }
-
-    if (data === 'save') {
-        const reports = JSON.parse(fs.readFileSync(reportsFile, 'utf-8'));
-        reports[chatId] = { ...userReports[chatId], date: new Date().toISOString() };
-        fs.writeFileSync(reportsFile, JSON.stringify(reports, null, 2));
-
-        const reportMessage =
-            `📝 *Отчёт от @${query.from.username || 'Неизвестный'}:*\n\n` +
-            `- 📋 *Штрафов оформлено:* ${userReports[chatId].fines_processed || 0}\n` +
-            `- 🚔 *Посадок в КПЗ:* ${userReports[chatId].detentions || 0}\n` +
-            `- ⚖️ *Дежурств в судах:* ${userReports[chatId].duties || 0}\n` +
-            `- 🚨 *Обходов по базам:* ${userReports[chatId].patrols || 0}\n` +
-            `- 🔍 *Участий в рейдах:* ${userReports[chatId].raids || 0}\n` +
-            `- 📜 *Выдано документов:* ${userReports[chatId].documents_issued || 0}`;
-
-        bot.sendMessage(reportsGroupId, reportMessage, { parse_mode: "Markdown" });
-        bot.sendMessage(chatId, '✅ Ваш отчёт отправлен!');
-        delete userReports[chatId];
-        return;
-    }
-
-    if (data === 'cancel') {
-        bot.sendMessage(chatId, '❌ Отчёт отменён.');
-        delete userReports[chatId];
-        return;
-    }
-
-    bot.sendMessage(chatId, `Введите количество:`);
-    userReports[chatId].currentCategory = data;
-    
-    bot.onText(/^\d+$/, (msg) => {
-        const chatId = msg.chat.id;
-        const number = parseInt(msg.text, 10);
-    
-        if (!userReports[chatId]) return;
-    
-        const currentCategory = userReports[chatId].currentCategory;
-        if (currentCategory) {
-            userReports[chatId][currentCategory] = number;
-            delete userReports[chatId].currentCategory;
-    
-            bot.sendMessage(chatId, `✅ Вы ввели ${number} для категории *${currentCategory}*.`);
-            bot.sendMessage(chatId, 'Теперь выберите следующую категорию или нажмите "Завершить".', {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: 'Оформлено штрафов', callback_data: 'fines_processed' }],
-                        [{ text: 'Посадок в КПЗ', callback_data: 'detentions' }],
-                        [{ text: 'Дежурств в судах', callback_data: 'duties' }],
-                        [{ text: 'Обходов по базам', callback_data: 'patrols' }],
-                        [{ text: 'Участий в рейдах', callback_data: 'raids' }],
-                        [{ text: 'Выдано документов', callback_data: 'documents_issued' }],
-                        [{ text: '✅ Завершить', callback_data: 'confirm' }]
-                    ]
-                }
+    bot.once('message', (message) => {
+        let principal = parseAmount(message.text);
+        if (!isNaN(principal) && principal > 0) {
+            bot.sendMessage(chatId, 'Введите месячную процентную ставку (%):');
+            bot.once('message', (rateMessage) => {
+                let rate = parseFloat(rateMessage.text) / 100;
+                bot.sendMessage(chatId, 'Введите срок (например, "6 месяцев" или "30 дней")');
+                bot.once('message', (timeMessage) => {
+                    let time = parseInt(timeMessage.text);
+                    let isDays = timeMessage.text.includes('дней');
+                    let result = calculateInterest(principal, rate, time, isDays);
+                    bot.sendMessage(chatId, `Итоговая сумма вклада: ${formatStacks(result)}`);
+                });
             });
+        } else {
+            bot.sendMessage(chatId, 'Некорректная сумма. Попробуйте еще раз.');
         }
     });
-    
 });
 
-// 🔹 Блокировка подачи отчётов
-bot.onText(/\/lock_reports/, (msg) => {
-    if (!adminIds.includes(msg.from.id)) return;
-    reportsLocked = true;
-    bot.sendMessage(msg.chat.id, '🔒 Подача отчётов заблокирована.');
-});
-
-// 🔹 Разблокировка подачи отчётов
-bot.onText(/\/unlock_reports/, (msg) => {
-    if (!adminIds.includes(msg.from.id)) return;
-    reportsLocked = false;
-    bot.sendMessage(msg.chat.id, '✅ Подача отчётов разблокирована.');
-});
-
-// 🔹 Просмотр личного отчёта
-bot.onText(/\/myreport/, (msg) => {
+bot.onText(/Рассчитать кредит/, (msg) => {
     const chatId = msg.chat.id;
-    const reports = JSON.parse(fs.readFileSync(reportsFile, 'utf-8'));
-    const report = reports[chatId];
+    bot.sendMessage(chatId, 'Введите сумму кредита (например, "10 шт", "2 стака" или "1 шалкер"):');
 
-    if (!report) return bot.sendMessage(chatId, '❌ У вас нет отчёта.');
+    bot.once('message', (message) => {
+        let principal = parseAmount(message.text);
+        if (!isNaN(principal) && principal > 0) {
+            bot.sendMessage(chatId, 'Введите месячную процентную ставку (%):');
+            bot.once('message', (rateMessage) => {
+                let rate = parseFloat(rateMessage.text) / 100;
+                bot.sendMessage(chatId, 'Введите срок (например, "6 месяцев" или "30 дней")');
+                bot.once('message', (timeMessage) => {
+                    let time = parseInt(timeMessage.text);
+                    let isDays = timeMessage.text.includes('дней');
+                    let result = calculateLoan(principal, rate, time, isDays);
+                    bot.sendMessage(chatId, `Итоговая сумма кредита: ${formatStacks(result)}`);
+                });
+            });
+        } else {
+            bot.sendMessage(chatId, 'Некорректная сумма. Попробуйте еще раз.');
+        }
+    });
+});
 
-    bot.sendMessage(chatId, `📋 Ваш последний отчёт:\n${JSON.stringify(report, null, 2)}`);
+bot.onText(/Выход/, (msg) => {
+    bot.sendMessage(msg.chat.id, 'Выход из расчета. Начните снова, набрав /start.');
 });
