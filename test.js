@@ -18,7 +18,7 @@ bot.on('message', (msg) => {
         `*Новости сервера, суды собрания и тд:* [ТГ Канал Сервера](https://t.me/+iOjQzgS-G-ozOTIy)\n` +
         `*Купить товары:* [Перейти](https://servermishanyaya.easydonate.ru/)\n` +
         `*Лаунчер, моды и ресурс пак для игры:* [Перейти](https://servermishanyaya.easydonate.ru/resources)\n` +
-        `*Помошь и часто задаваемые вопросы:* [Перейти](https://servermishanyaya.easydonate.ru/help)\n` +
+        `*Помощь и часто задаваемые вопросы:* [Перейти](https://servermishanyaya.easydonate.ru/help)\n` +
         `*Подпишитесь на телеграмм канал:* [Халатного](https://t.me/+dt8Sh8x762FmYWYy)`;
 
       // Отправляем сообщение
