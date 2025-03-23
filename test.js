@@ -2,6 +2,23 @@ const TelegramBot = require('node-telegram-bot-api');
 const token = '8023867940:AAEUA3mDpQQLLopq0mnYUN8c2NZog3U73xQ'; // Ваш токен
 const bot = new TelegramBot(token, { polling: true });
 
+// Обработчик команд
+bot.onText(/!(твич|twitch)/, (msg) => {
+  const chatId = msg.chat.id;
+
+  // Отправляем ссылку на Twitch
+  const twitchMessage = 'Смотрите нас на Twitch: [khalatny](https://www.twitch.tv/khalatny)';
+  bot.sendMessage(chatId, twitchMessage, { parse_mode: 'Markdown' });
+});
+
+bot.onText(/!(сайт|сайт)/, (msg) => {
+  const chatId = msg.chat.id;
+
+  // Отправляем ссылку на сайт
+  const siteMessage = 'Перейти на сайт сервера: [Перейти](https://servermishanyaya.easydonate.ru/)';
+  bot.sendMessage(chatId, siteMessage, { parse_mode: 'Markdown' });
+});
+
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
 
