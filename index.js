@@ -1266,7 +1266,6 @@ function getCurrentDate() {
   return `${day}/${month}/${year}`;
 }
 
-// Команда /оформить_доставку
 bot.onText(/\/(oformit_dostavky|оформить_доставку)/, (msg) => {
   const chatId = msg.chat.id;
 
@@ -1313,7 +1312,7 @@ bot.on('callback_query', (query) => {
   }
 });
 
-// Проверка сообщений на соответствие формату
+// Обработка заявок
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -1340,7 +1339,7 @@ bot.on('message', (msg) => {
       coordinates: match[3].trim(),
       date: match[4].trim(),
       chatId: chatId,
-      status: 'в ожидании', // Устанавливаем статус "в ожидании"
+      status: 'в ожидании',
     };
 
     deliveries.push(deliveryData);
@@ -1365,67 +1364,55 @@ bot.on('message', (msg) => {
                 text: 'Подтвердить доставку',
                 callback_data: `confirm_${nickname}`,
               },
+              {
+                text: 'Отменить доставку',
+                callback_data: `cancel_${nickname}`,
+              },
             ],
           ],
         },
       }
     );
-  } else {
-    deliveryAttempts[chatId] = (deliveryAttempts[chatId] || 0) + 1;
-
-    if (deliveryAttempts[chatId] >= 3) {
-      delete deliveryAttempts[chatId];
-      bot.sendMessage(
-        chatId,
-        `❌ Трижды введено сообщение не по образцу. Попробуйте снова, начав с команды /оформить_доставку.`
-      );
-    } else {
-      bot.sendMessage(
-        chatId,
-        `❌ Сообщение не соответствует формату.\n\n*Образец:*\n\n` +
-          `*Никнейм:* Ваш_Никнейм\n` +
-          `*Товары:* примерный список товаров\n` +
-          `*Координаты:* x y z\n` +
-          `*Дата оформление доставки:* ${getCurrentDate()}\n\n` +
-          `Сообщение должно строго соответствовать формату!`,
-        { parse_mode: 'Markdown' }
-      );
-    }
   }
 });
 
-// Обработка кнопки "Подтвердить доставку"
+// Обработка кнопок подтверждения и отмены доставки
 bot.on('callback_query', (callbackQuery) => {
   const data = callbackQuery.data;
 
   if (data.startsWith('confirm_')) {
     const nickname = data.split('_')[1];
-
     const delivery = deliveries.find((delivery) => delivery.nickname === nickname);
 
     if (delivery) {
-      delivery.status = 'доставлено'; // Обновляем статус
+      delivery.status = 'доставлено';
       saveDeliveries();
 
       bot.sendMessage(adminChatId, `✅ Доставка для ${nickname} подтверждена.`);
-
-      bot.editMessageReplyMarkup(
-        { inline_keyboard: [] },
-        { chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id }
-      );
-
-      bot.answerCallbackQuery(callbackQuery.id, { text: 'Доставка подтверждена!' });
-
-      bot.sendMessage(
-        delivery.chatId,
-        `📦 Ваша заявка на доставку была успешно выполнена. Спасибо за использование нашего бота!`
-      );
-    } else {
-      bot.answerCallbackQuery(callbackQuery.id, { text: 'Заявка не найдена!' });
+      bot.sendMessage(delivery.chatId, `📦 Ваша заявка на доставку выполнена!`);
     }
   }
-});
+  
+  if (data.startsWith('cancel_')) {
+    const nickname = data.split('_')[1];
+    const index = deliveries.findIndex((delivery) => delivery.nickname === nickname);
 
+    if (index !== -1) {
+      deliveries.splice(index, 1);
+      saveDeliveries();
+
+      bot.sendMessage(adminChatId, `❌ Доставка для ${nickname} отменена.`);
+      bot.sendMessage(callbackQuery.message.chat.id, `🚫 Заявка на доставку отменена.`);
+    }
+  }
+
+  bot.editMessageReplyMarkup(
+    { inline_keyboard: [] },
+    { chat_id: callbackQuery.message.chat.id, message_id: callbackQuery.message.message_id }
+  );
+
+  bot.answerCallbackQuery(callbackQuery.id, { text: 'Операция выполнена!' });
+});
 
 bot.onText(/\/submit_case/, (msg) => {
   const chatId = msg.chat.id;
