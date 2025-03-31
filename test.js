@@ -1,8 +1,8 @@
-const TelegramBot = require('node-telegram-bot-api');
+const TelegramBot = require('node-telegram-bot-api'); 
 const token = '8023867940:AAEUA3mDpQQLLopq0mnYUN8c2NZog3U73xQ'; // Ваш токен
 const bot = new TelegramBot(token, { polling: true });
 
-const ADMIN_ID = [2030128216, 1923832824]; // ID разрешенного пользователя
+const ADMIN_IDS = [2030128216, 1923832824]; // Список разрешенных пользователей
 
 const welcomeMessage = `Добро пожаловать! 🎉\n\n` +
   `*Правила сервера:* [Ознакомиться](https://telegra.ph/Pravila-Servera-03-08)\n` +
@@ -26,9 +26,9 @@ bot.on('message', (msg) => {
   }
 });
 
-// Команда /welcome доступна только для ADMIN_ID
+// Команда /welcome доступна только для ADMIN_IDS
 bot.onText(/\/welcome/, (msg) => {
-  if (msg.from.id === ADMIN_ID) {
+  if (ADMIN_IDS.includes(msg.from.id)) {
     bot.sendMessage(msg.chat.id, welcomeMessage, { parse_mode: 'Markdown' });
   } else {
     bot.sendMessage(msg.chat.id, 'У вас нет доступа к этой команде.');
