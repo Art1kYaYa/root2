@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const token = '8023867940:AAEUA3mDpQQLLopq0mnYUN8c2NZog3U73xQ'; // Ваш токен
 const bot = new TelegramBot(token, { polling: true });
 
-const ADMIN_ID = 2030128216, 1923832824; // ID разрешенного пользователя
+const ADMIN_ID = [2030128216, 1923832824]; // ID разрешенного пользователя
 
 const welcomeMessage = `Добро пожаловать! 🎉\n\n` +
   `*Правила сервера:* [Ознакомиться](https://telegra.ph/Pravila-Servera-03-08)\n` +
