@@ -134,7 +134,7 @@ client.on('message', (channel, tags, message, self) => {
     // Обработка других команд
     const commands = {
         '!сайт': 'Сайт сервера: https://servermishanyaya.easydonate.ru/',
-        '!донат': 'Донат: https://www.donationalerts.com/r/mihadred',
+        '!донат': 'Донат: https://new.donatepay.ru/@1344104',
         '!yt': 'YouTube: https://www.youtube.com/@Мишаня2222',
         '!ютуб': 'YouTube: https://www.youtube.com/@Мишаня2222',
         '!вк': 'VK - https://vk.com/mishanyaya2222',
