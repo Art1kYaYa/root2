@@ -134,13 +134,13 @@ client.on('message', (channel, tags, message, self) => {
     // Обработка других команд
     const commands = {
         '!сайт': 'Сайт сервера: https://servermishanyaya.easydonate.ru/',
-        '!донат': 'Донат: https://new.donatepay.ru/@1344104',
+        '!донат': 'Донат DA - https://www.donationalerts.com/r/mihadred Донат Пэй- https://new.donatepay.ru/@1344104 Донат в крипте USDT - 0xA1B27d127449dd25349CA45c53bfbDF83CD1c8a8',
         '!yt': 'YouTube: https://www.youtube.com/@Мишаня2222',
         '!ютуб': 'YouTube: https://www.youtube.com/@Мишаня2222',
         '!вк': 'VK - https://vk.com/mishanyaya2222',
         '!тг': 'Telegram канал Халатного: https://t.me/+dt8Sh8x762FmYWYy',
         '!tg': 'Telegram канал Халатного: https://t.me/+dt8Sh8x762FmYWYy'
-    };
+    }; 
 
     if (commands[lowerCaseMessage]) {
         client.say(channel, commands[lowerCaseMessage]);
