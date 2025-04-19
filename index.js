@@ -164,8 +164,7 @@ bot.onText(/\/worker_help/, (msg) => {
 
 
 function isWorker(chatId) {
-  return users[chatId]?.role === 'worker'; 
-}
+  return users[chatId] && users[chatId].role === 'worker';
 
 
 function deleteActiveMessage(chatId) {
