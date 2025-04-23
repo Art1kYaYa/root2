@@ -36,7 +36,7 @@ bot.on('message', (msg) => {
         `(кратко — <a href="https://telegra.ph/Pravila-Servera-03-08">тут</a>).\n\n` +
         `Запрещены: <b>читы</b>, <b>гриферство</b>, <b>оскорбления(БанВорды)</b> — всё фиксируется тех.Администраций и плагином <b>CoreProtect</b> ` +
         `и всё может быть откатано за пару секунд.\n\n` +
-        `Спасибо, что зашёл к нам!\n\n${welcomeMessage}`;
+        `Спасибо, что зашёл(-а) к нам!\n\n${welcomeMessage}`;
 
       bot.sendMessage(chatId, fullMessage, {
         parse_mode: 'HTML',
