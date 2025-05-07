@@ -466,7 +466,7 @@ bot.onText(/\/fine (@\w+|\w+) (\d+) (.+)/, async (msg, match) => {
     rejectedBy: null, // Добавляем поле для хранения ID отклоняющего работника
   });
 
-  saveFines();
+
 
   bot.sendMessage(
     chatId,
@@ -521,7 +521,7 @@ bot.on('callback_query', async (query) => {
             return;
         }
         unpaidFine.requestedPayment = true;
-        saveFines();
+
 
         // Отправляем уведомление всем работникам
         Object.entries(users)
@@ -567,7 +567,6 @@ bot.on('callback_query', async (query) => {
         unpaidFine.rejectedBy = isConfirm ? null : chatId;
         unpaidFine.confirmedBy = isConfirm ? chatId : null;
 
-        saveFines();
 
         const statusText = isConfirm ? '✅ Оплачено' : '❌ Отклонено';
         bot.answerCallbackQuery(query.id, { text: `✅ Штраф ${statusText}.` });
@@ -624,7 +623,7 @@ bot.onText(/\/change_fine_status (\d+) (\w+)/, (msg, match) => {
   unpaidFine.rejectedBy = (status === 'отказано') ? chatId : null;
   unpaidFine.confirmedBy = (status === 'оплачено') ? chatId : null;
 
-  saveFines();
+  
 
   // Уведомляем работника, что статус штрафа был изменен
   bot.sendMessage(chatId, `✅ Статус штрафа для пользователя ${users[targetUserId]?.username || 'неизвестного'} был изменен на "${status}".`);
