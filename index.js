@@ -413,9 +413,6 @@ function loadFines() {
   return {};
 }
 
-function saveFines() {
-  fs.writeFileSync(finesFile, JSON.stringify(fines, null, 2), 'utf-8');
-}
 
 // Проверка, является ли пользователь работником
 function isWorker(userId) {
