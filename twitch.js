@@ -116,7 +116,7 @@ client.on('message', (channel, tags, message, self) => {
 
     // Каждые 20 сообщений — рандом
     messageCount++;
-    if (messageCount >= 20) {
+    if (messageCount >= 10) {
         const randomMessage = getRandomMessage();
         client.say(channel, randomMessage);
         console.log(`Отправлено случайное сообщение: ${randomMessage}`);
