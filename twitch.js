@@ -8,8 +8,7 @@ const opts = {
         password: 'oauth:2lrso8utxczs3vmd5b335t9cx53bno' // Заменить на свой OAuth токен
     },
     channels: [
-        'khalatny',
-        'frikver'
+        'khalatny'
     ]
 };
 
