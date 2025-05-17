@@ -9,6 +9,7 @@ const opts = {
     },
     channels: [
         'khalatny'
+        'frikver'
     ]
 };
 
