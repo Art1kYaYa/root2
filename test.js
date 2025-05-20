@@ -38,9 +38,17 @@ bot.on('message', (msg) => {
         `и всё может быть откатано за пару секунд.\n\n` +
         `Спасибо, что зашёл(-а) к нам!\n\n${welcomeMessage}`;
 
+      const secondMessage = `⚠️ <b>ЕСЛИ ВЫ НЕ УМЕЕТЕ ЧИТАТЬ</b> — НЕ НУЖНО ПИСАТЬ "ГДЕ IP?"\n` +
+                            `📌 Всё есть выше, в строчке <b>"Инфо о сервере (IP и прочее)"</b>.`;
+
       bot.sendMessage(chatId, fullMessage, {
         parse_mode: 'HTML',
         disable_web_page_preview: true
+      }).then(() => {
+        bot.sendMessage(chatId, secondMessage, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        });
       });
     });
   }
